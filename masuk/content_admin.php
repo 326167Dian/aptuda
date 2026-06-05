@@ -83,10 +83,10 @@ if ($_GET['module']=='home'){
     $selectedMonth = isset($_GET['bulan']) ? intval($_GET['bulan']) : intval(date('m'));
     $selectedYear = isset($_GET['tahun']) ? intval($_GET['tahun']) : intval(date('Y'));
     $chartMode = isset($_GET['tampilan']) ? $_GET['tampilan'] : 'pembelian';
-    if (!in_array($chartMode, array('pembelian', 'penjualan', 'pelanggan'))) {
+    if (!in_array($chartMode, array('pembelian', 'penjualan', 'pelanggan', 'kasmasuk'))) {
         $chartMode = 'pembelian';
     }
-    $chartModeLabel = $chartMode === 'penjualan' ? 'Penjualan' : ($chartMode === 'pelanggan' ? 'Pelanggan' : 'Pembelian');
+    $chartModeLabel = $chartMode === 'penjualan' ? 'Penjualan' : ($chartMode === 'pelanggan' ? 'Pelanggan' : ($chartMode === 'kasmasuk' ? 'Kas Masuk' : 'Pembelian'));
 
     $selectedMonth = max(1, min(12, $selectedMonth));
     $selectedYear = max(2000, min(2100, $selectedYear));
@@ -98,7 +98,7 @@ if ($_GET['module']=='home'){
     $previousEnd = date('Y-m-t', strtotime($previousStart));
     $previousPeriod = date('Y-m', strtotime($previousStart));
 
-    if ($chartMode === 'penjualan') {
+    if ($chartMode === 'penjualan' || $chartMode === 'kasmasuk') {
         $dateField = 'tgl_trkasir';
         $totalField = 'nilai_transaksi';
         $tableName = 'trkasir';
@@ -141,6 +141,9 @@ if ($_GET['module']=='home'){
         $sqlGrafik = "SELECT DATE_FORMAT($dateField, '%Y-%m-%d') AS tgl, SUM($totalField) AS total ";
         $sqlGrafik .= "FROM $tableName ";
         $sqlGrafik .= "WHERE $dateField BETWEEN '$previousStart' AND '$currentEnd' ";
+        if ($chartMode === 'kasmasuk') {
+            $sqlGrafik .= "AND statusbayar = 'LUNAS' ";
+        }
         $sqlGrafik .= "GROUP BY DATE_FORMAT($dateField, '%Y-%m-%d') ";
         $sqlGrafik .= "ORDER BY tgl";
         $hasilGrafik = mysqli_query($GLOBALS['___mysqli_ston'], $sqlGrafik);
@@ -156,6 +159,16 @@ if ($_GET['module']=='home'){
 
         $currentTotal = array_sum($currentTotals);
         $previousTotal = array_sum($previousTotals);
+        if ($chartMode === 'kasmasuk') {
+            $sqlSalesTotal = "SELECT SUM(nilai_transaksi) AS total FROM trkasir WHERE tgl_trkasir BETWEEN '$currentStart' AND '$currentEnd'";
+            $hasilSalesTotal = mysqli_query($GLOBALS['___mysqli_ston'], $sqlSalesTotal);
+            $salesTotalCurrent = 0;
+            if ($rSales = mysqli_fetch_assoc($hasilSalesTotal)) {
+                $salesTotalCurrent = isset($rSales['total']) ? (float) $rSales['total'] : 0;
+            }
+        } else {
+            $salesTotalCurrent = 0;
+        }
         $difference = $currentTotal - $previousTotal;
         $changePercent = $previousTotal > 0 ? round(($difference / $previousTotal) * 100, 2) : ($currentTotal > 0 ? 100 : 0);
 
@@ -180,6 +193,8 @@ if ($_GET['module']=='home'){
         '05' => 'Mei', '06' => 'Juni', '07' => 'Juli', '08' => 'Agustus',
         '09' => 'September', '10' => 'Oktober', '11' => 'November', '12' => 'Desember'
     );
+    $selectedMonthName = isset($bulanNama[$selectedMonth]) ? $bulanNama[$selectedMonth] : '';
+    $previousMonthName = isset($bulanNama[date('m', strtotime($previousStart))]) ? $bulanNama[date('m', strtotime($previousStart))] : '';
 
 	?>
 	  <!-- Small boxes (Stat box) -->
@@ -215,6 +230,7 @@ if ($_GET['module']=='home'){
                     <select name="tampilan" class="form-control" style="margin-right:10px;">
                         <option value="pembelian" <?php echo $chartMode === 'pembelian' ? 'selected' : ''; ?>>Pembelian</option>
                         <option value="penjualan" <?php echo $chartMode === 'penjualan' ? 'selected' : ''; ?>>Penjualan</option>
+                        <option value="kasmasuk" <?php echo $chartMode === 'kasmasuk' ? 'selected' : ''; ?>>Kas Masuk</option>
                         <option value="pelanggan" <?php echo $chartMode === 'pelanggan' ? 'selected' : ''; ?>>Pelanggan</option>
                     </select>
                     <button type="submit" class="btn btn-primary">Refresh</button>
@@ -228,6 +244,9 @@ if ($_GET['module']=='home'){
                 <div style="background:#00c0ef;color:#fff;padding:20px;border-radius:6px;">
                     <div style="font-size:18px;">Total <?php echo $chartModeLabel; ?> Bulan Dipilih</div>
                     <div style="font-size:32px;font-weight:bold; margin-top:10px;">Rp <?php echo number_format($currentTotal,0,',','.'); ?></div>
+                    <?php if ($chartMode === 'kasmasuk') { ?>
+                        <div style="margin-top:10px; font-size:13px; color:rgba(255,255,255,0.9);">Penjualan : Rp <?php echo number_format($salesTotalCurrent,0,',','.'); ?></div>
+                    <?php } ?>
                     <div style="margin-top:10px;"><?php echo $selectedMonthName.' '.$selectedYear; ?></div>
                 </div>
             </div>
