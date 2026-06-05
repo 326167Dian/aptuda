@@ -28,23 +28,39 @@ document.location = delUrl;
         }
 
         var data = window.grafikTrbmasukData || [];
+        var mode = window.grafikTrbmasukMode || 'pembelian';
         if (!data || !data.length) {
             return;
         }
 
-        new Morris.Line({
-            element: 'grafik_trbmasuk',
-            data: data,
-            xkey: 'hari',
-            ykeys: ['BulanIni', 'BulanLalu'],
-            labels: ['Bulan Ini', 'Bulan Lalu'],
-            lineColors: ['#0073b7', '#f39c12'],
-            pointFillColors: ['#0073b7', '#f39c12'],
-            hideHover: 'auto',
-            resize: true,
-            parseTime: false,
-            xLabelAngle: 35
-        });
+        if (mode === 'pelanggan') {
+            new Morris.Bar({
+                element: 'grafik_trbmasuk',
+                data: data,
+                xkey: 'pelanggan',
+                ykeys: ['Total'],
+                labels: ['Total'],
+                barColors: ['#0073b7'],
+                hideHover: 'auto',
+                resize: true,
+                parseTime: false,
+                xLabelAngle: 35
+            });
+        } else {
+            new Morris.Line({
+                element: 'grafik_trbmasuk',
+                data: data,
+                xkey: 'hari',
+                ykeys: ['BulanIni', 'BulanLalu'],
+                labels: ['Bulan Ini', 'Bulan Lalu'],
+                lineColors: ['#0073b7', '#f39c12'],
+                pointFillColors: ['#0073b7', '#f39c12'],
+                hideHover: 'auto',
+                resize: true,
+                parseTime: false,
+                xLabelAngle: 35
+            });
+        }
     }
 
     function set(e) {
@@ -67,8 +83,10 @@ if ($_GET['module']=='home'){
     $selectedMonth = isset($_GET['bulan']) ? intval($_GET['bulan']) : intval(date('m'));
     $selectedYear = isset($_GET['tahun']) ? intval($_GET['tahun']) : intval(date('Y'));
     $chartMode = isset($_GET['tampilan']) ? $_GET['tampilan'] : 'pembelian';
-    $chartMode = $chartMode === 'penjualan' ? 'penjualan' : 'pembelian';
-    $chartModeLabel = $chartMode === 'penjualan' ? 'Penjualan' : 'Pembelian';
+    if (!in_array($chartMode, array('pembelian', 'penjualan', 'pelanggan'))) {
+        $chartMode = 'pembelian';
+    }
+    $chartModeLabel = $chartMode === 'penjualan' ? 'Penjualan' : ($chartMode === 'pelanggan' ? 'Pelanggan' : 'Pembelian');
 
     $selectedMonth = max(1, min(12, $selectedMonth));
     $selectedYear = max(2000, min(2100, $selectedYear));
@@ -84,46 +102,76 @@ if ($_GET['module']=='home'){
         $dateField = 'tgl_trkasir';
         $totalField = 'nilai_transaksi';
         $tableName = 'trkasir';
+    } elseif ($chartMode === 'pelanggan') {
+        $dateField = 'tgl_trkasir';
+        $totalField = 'nilai_transaksi';
+        $tableName = 'trkasir';
     } else {
         $dateField = 'tgl_trbmasuk';
         $totalField = 'ttl_trbmasuk';
         $tableName = 'trbmasuk';
     }
 
-    $sqlGrafik = "SELECT DATE_FORMAT($dateField, '%Y-%m-%d') AS tgl, SUM($totalField) AS total ";
-    $sqlGrafik .= "FROM $tableName ";
-    $sqlGrafik .= "WHERE $dateField BETWEEN '$previousStart' AND '$currentEnd' ";
-    $sqlGrafik .= "GROUP BY DATE_FORMAT($dateField, '%Y-%m-%d') ";
-    $sqlGrafik .= "ORDER BY tgl";
-    $hasilGrafik = mysqli_query($GLOBALS['___mysqli_ston'], $sqlGrafik);
-    $currentTotals = array();
-    $previousTotals = array();
-    while ($rg = mysqli_fetch_assoc($hasilGrafik)) {
-        if (strpos($rg['tgl'], $currentPeriod) === 0) {
-            $currentTotals[$rg['tgl']] = (float) $rg['total'];
-        } elseif (strpos($rg['tgl'], $previousPeriod) === 0) {
-            $previousTotals[$rg['tgl']] = (float) $rg['total'];
-        }
-    }
-
-    $currentTotal = array_sum($currentTotals);
-    $previousTotal = array_sum($previousTotals);
-    $difference = $currentTotal - $previousTotal;
-    $changePercent = $previousTotal > 0 ? round(($difference / $previousTotal) * 100, 2) : ($currentTotal > 0 ? 100 : 0);
-
-    $daysCurrent = date('t', strtotime($currentStart));
-    $daysPrevious = date('t', strtotime($previousStart));
-    $maxDays = max($daysCurrent, $daysPrevious);
     $chartData = array();
-    for ($day = 1; $day <= $maxDays; $day++) {
-        $label = str_pad($day, 2, '0', STR_PAD_LEFT);
-        $currentKey = "$currentPeriod-$label";
-        $previousKey = "$previousPeriod-$label";
-        $chartData[] = array(
-            'hari' => $label,
-            'BulanIni' => isset($currentTotals[$currentKey]) ? $currentTotals[$currentKey] : 0,
-            'BulanLalu' => isset($previousTotals[$previousKey]) ? $previousTotals[$previousKey] : 0,
-        );
+    if ($chartMode === 'pelanggan') {
+        $sqlGrafik = "SELECT nm_pelanggan AS pelanggan, SUM($totalField) AS total ";
+        $sqlGrafik .= "FROM $tableName ";
+        $sqlGrafik .= "WHERE $dateField BETWEEN '$currentStart' AND '$currentEnd' ";
+        $sqlGrafik .= "AND nm_pelanggan IS NOT NULL AND TRIM(nm_pelanggan) <> '' ";
+        $sqlGrafik .= "GROUP BY nm_pelanggan ";
+        $sqlGrafik .= "ORDER BY total DESC ";
+        $sqlGrafik .= "LIMIT 20";
+        $hasilGrafik = mysqli_query($GLOBALS['___mysqli_ston'], $sqlGrafik);
+        $currentTotal = 0;
+        while ($rg = mysqli_fetch_assoc($hasilGrafik)) {
+            $currentTotal += (float) $rg['total'];
+            $chartData[] = array(
+                'pelanggan' => $rg['pelanggan'],
+                'Total' => (float) $rg['total'],
+            );
+        }
+
+        $sqlPrev = "SELECT SUM($totalField) AS total FROM $tableName WHERE $dateField BETWEEN '$previousStart' AND '$previousEnd'";
+        $hasilPrev = mysqli_query($GLOBALS['___mysqli_ston'], $sqlPrev);
+        $rprev = mysqli_fetch_assoc($hasilPrev);
+        $previousTotal = isset($rprev['total']) ? (float) $rprev['total'] : 0;
+        $difference = $currentTotal - $previousTotal;
+        $changePercent = $previousTotal > 0 ? round(($difference / $previousTotal) * 100, 2) : ($currentTotal > 0 ? 100 : 0);
+    } else {
+        $sqlGrafik = "SELECT DATE_FORMAT($dateField, '%Y-%m-%d') AS tgl, SUM($totalField) AS total ";
+        $sqlGrafik .= "FROM $tableName ";
+        $sqlGrafik .= "WHERE $dateField BETWEEN '$previousStart' AND '$currentEnd' ";
+        $sqlGrafik .= "GROUP BY DATE_FORMAT($dateField, '%Y-%m-%d') ";
+        $sqlGrafik .= "ORDER BY tgl";
+        $hasilGrafik = mysqli_query($GLOBALS['___mysqli_ston'], $sqlGrafik);
+        $currentTotals = array();
+        $previousTotals = array();
+        while ($rg = mysqli_fetch_assoc($hasilGrafik)) {
+            if (strpos($rg['tgl'], $currentPeriod) === 0) {
+                $currentTotals[$rg['tgl']] = (float) $rg['total'];
+            } elseif (strpos($rg['tgl'], $previousPeriod) === 0) {
+                $previousTotals[$rg['tgl']] = (float) $rg['total'];
+            }
+        }
+
+        $currentTotal = array_sum($currentTotals);
+        $previousTotal = array_sum($previousTotals);
+        $difference = $currentTotal - $previousTotal;
+        $changePercent = $previousTotal > 0 ? round(($difference / $previousTotal) * 100, 2) : ($currentTotal > 0 ? 100 : 0);
+
+        $daysCurrent = date('t', strtotime($currentStart));
+        $daysPrevious = date('t', strtotime($previousStart));
+        $maxDays = max($daysCurrent, $daysPrevious);
+        for ($day = 1; $day <= $maxDays; $day++) {
+            $label = str_pad($day, 2, '0', STR_PAD_LEFT);
+            $currentKey = "$currentPeriod-$label";
+            $previousKey = "$previousPeriod-$label";
+            $chartData[] = array(
+                'hari' => $label,
+                'BulanIni' => isset($currentTotals[$currentKey]) ? $currentTotals[$currentKey] : 0,
+                'BulanLalu' => isset($previousTotals[$previousKey]) ? $previousTotals[$previousKey] : 0,
+            );
+        }
     }
     $chartDataJson = json_encode($chartData);
 
@@ -167,6 +215,7 @@ if ($_GET['module']=='home'){
                     <select name="tampilan" class="form-control" style="margin-right:10px;">
                         <option value="pembelian" <?php echo $chartMode === 'pembelian' ? 'selected' : ''; ?>>Pembelian</option>
                         <option value="penjualan" <?php echo $chartMode === 'penjualan' ? 'selected' : ''; ?>>Penjualan</option>
+                        <option value="pelanggan" <?php echo $chartMode === 'pelanggan' ? 'selected' : ''; ?>>Pelanggan</option>
                     </select>
                     <button type="submit" class="btn btn-primary">Refresh</button>
                     <span style="margin-left:20px; color:#666;">Update terakhir: <?php echo date('Y-m-d H:i:s'); ?></span>
@@ -205,7 +254,11 @@ if ($_GET['module']=='home'){
                         <h3 class="box-title"><?php echo $chartModeLabel.' '.$selectedMonthName.' '.$selectedYear; ?> vs <?php echo $previousMonthName.' '.date('Y', strtotime($previousStart)); ?></h3>
                     </div>
                     <div class="box-body">
-                        <p>X = tanggal <?php echo strtolower($chartModeLabel); ?>, Y = total Rupiah dari <code><?php echo $totalField; ?></code>.</p>
+                        <?php if ($chartMode === 'pelanggan') { ?>
+                            <p>X = Nama pelanggan, Y = total Rupiah dari <code><?php echo $totalField; ?></code>.</p>
+                        <?php } else { ?>
+                            <p>X = tanggal <?php echo strtolower($chartModeLabel); ?>, Y = total Rupiah dari <code><?php echo $totalField; ?></code>.</p>
+                        <?php } ?>
                         <div id="grafik_trbmasuk" style="height:340px;"></div>
                     </div>
                 </div>
@@ -220,7 +273,7 @@ if ($_GET['module']=='home'){
  
  ";
   
-  echo '<script>window.grafikTrbmasukData = ' . $chartDataJson . ';</script>';
+  echo '<script>window.grafikTrbmasukData = ' . $chartDataJson . '; window.grafikTrbmasukMode = "' . $chartMode . '";</script>';
 }
 // Bagian user admin
 elseif ($_GET['module']=='admin'){
