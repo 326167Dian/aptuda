@@ -255,7 +255,7 @@ if ($_GET['module']=='home'){
                     </div>
                     <div class="box-body">
                         <?php if ($chartMode === 'pelanggan') { ?>
-                            <p>X = Nama pelanggan, Y = total Rupiah dari <code><?php echo $totalField; ?></code>.</p>
+                            <p>X = 20  pelanggan Terbanyak, Y = total Rupiah dari <code><?php echo $totalField; ?></code>.</p>
                         <?php } else { ?>
                             <p>X = tanggal <?php echo strtolower($chartModeLabel); ?>, Y = total Rupiah dari <code><?php echo $totalField; ?></code>.</p>
                         <?php } ?>
