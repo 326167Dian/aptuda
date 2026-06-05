@@ -6,7 +6,9 @@ document.location = delUrl;
 }
 </script>
 <script type="text/javascript">
-    window.onload = function() { jam(); }
+    var grafikTrbmasukData = [];
+
+    window.onload = function() { jam(); drawGrafikTrbmasuk(); }
 
     function jam() {
         var e = document.getElementById('jam'),
@@ -18,6 +20,31 @@ document.location = delUrl;
         e.innerHTML = h +':'+ m +':'+ s;
 
         setTimeout('jam()', 1000);
+    }
+
+    function drawGrafikTrbmasuk() {
+        if (typeof Morris === 'undefined') {
+            return;
+        }
+
+        var data = window.grafikTrbmasukData || [];
+        if (!data || !data.length) {
+            return;
+        }
+
+        new Morris.Line({
+            element: 'grafik_trbmasuk',
+            data: data,
+            xkey: 'hari',
+            ykeys: ['BulanIni', 'BulanLalu'],
+            labels: ['Bulan Ini', 'Bulan Lalu'],
+            lineColors: ['#0073b7', '#f39c12'],
+            pointFillColors: ['#0073b7', '#f39c12'],
+            hideHover: 'auto',
+            resize: true,
+            parseTime: false,
+            xLabelAngle: 35
+        });
     }
 
     function set(e) {
@@ -37,6 +64,62 @@ $tgl_awal = date('d-m-Y');
 // Bagian Home
 if ($_GET['module']=='home'){
 
+    $selectedMonth = isset($_GET['bulan']) ? intval($_GET['bulan']) : intval(date('m'));
+    $selectedYear = isset($_GET['tahun']) ? intval($_GET['tahun']) : intval(date('Y'));
+    $selectedMonth = max(1, min(12, $selectedMonth));
+    $selectedYear = max(2000, min(2100, $selectedYear));
+
+    $selectedMonth = str_pad($selectedMonth, 2, '0', STR_PAD_LEFT);
+    $currentPeriod = "$selectedYear-$selectedMonth";
+    $currentStart = "$currentPeriod-01";
+    $currentEnd = date('Y-m-t', strtotime($currentStart));
+    $previousStart = date('Y-m-01', strtotime($currentStart.' -1 month'));
+    $previousEnd = date('Y-m-t', strtotime($previousStart));
+    $previousPeriod = date('Y-m', strtotime($previousStart));
+
+    $sqlGrafik = "SELECT DATE_FORMAT(tgl_trbmasuk, '%Y-%m-%d') AS tgl, SUM(ttl_trbmasuk) AS total ";
+    $sqlGrafik .= "FROM trbmasuk ";
+    $sqlGrafik .= "WHERE tgl_trbmasuk BETWEEN '$previousStart' AND '$currentEnd' ";
+    $sqlGrafik .= "GROUP BY DATE_FORMAT(tgl_trbmasuk, '%Y-%m-%d') ";
+    $sqlGrafik .= "ORDER BY tgl";
+    $hasilGrafik = mysqli_query($GLOBALS['___mysqli_ston'], $sqlGrafik);
+    $currentTotals = array();
+    $previousTotals = array();
+    while ($rg = mysqli_fetch_assoc($hasilGrafik)) {
+        if (strpos($rg['tgl'], $currentPeriod) === 0) {
+            $currentTotals[$rg['tgl']] = (float) $rg['total'];
+        } elseif (strpos($rg['tgl'], $previousPeriod) === 0) {
+            $previousTotals[$rg['tgl']] = (float) $rg['total'];
+        }
+    }
+
+    $currentTotal = array_sum($currentTotals);
+    $previousTotal = array_sum($previousTotals);
+    $difference = $currentTotal - $previousTotal;
+    $changePercent = $previousTotal > 0 ? round(($difference / $previousTotal) * 100, 2) : ($currentTotal > 0 ? 100 : 0);
+
+    $daysCurrent = date('t', strtotime($currentStart));
+    $daysPrevious = date('t', strtotime($previousStart));
+    $maxDays = max($daysCurrent, $daysPrevious);
+    $chartData = array();
+    for ($day = 1; $day <= $maxDays; $day++) {
+        $label = str_pad($day, 2, '0', STR_PAD_LEFT);
+        $currentKey = "$currentPeriod-$label";
+        $previousKey = "$previousPeriod-$label";
+        $chartData[] = array(
+            'hari' => $label,
+            'BulanIni' => isset($currentTotals[$currentKey]) ? $currentTotals[$currentKey] : 0,
+            'BulanLalu' => isset($previousTotals[$previousKey]) ? $previousTotals[$previousKey] : 0,
+        );
+    }
+    $chartDataJson = json_encode($chartData);
+
+    $bulanNama = array(
+        '01' => 'Januari', '02' => 'Februari', '03' => 'Maret', '04' => 'April',
+        '05' => 'Mei', '06' => 'Juni', '07' => 'Juli', '08' => 'Agustus',
+        '09' => 'September', '10' => 'Oktober', '11' => 'November', '12' => 'Desember'
+    );
+
 	?>
 	  <!-- Small boxes (Stat box) -->
 	
@@ -50,10 +133,65 @@ if ($_GET['module']=='home'){
                         Silahkan klik menu pilihan yang berada di sebelah kiri untuk mengelola aplikasi
 					</p>
 				</div>
-				
-				
-				
-		</div>
+			</div>
+        <div class="row" style="margin:0 20px 20px 20px;">
+            <div class="col-md-12">
+                <form method="get" class="form-inline" style="margin-bottom:15px;">
+                    <input type="hidden" name="module" value="home" />
+                    <label style="margin-right:8px;">Bulan</label>
+                    <select name="bulan" class="form-control" style="margin-right:10px;">
+                        <?php foreach ($bulanNama as $num => $name) { ?>
+                            <option value="<?php echo $num; ?>" <?php echo $selectedMonth === $num ? 'selected' : ''; ?>><?php echo $name; ?></option>
+                        <?php } ?>
+                    </select>
+                    <label style="margin-right:8px; margin-left:15px;">Tahun</label>
+                    <select name="tahun" class="form-control" style="margin-right:10px;">
+                        <?php for ($y = date('Y') - 3; $y <= date('Y') + 1; $y++) { ?>
+                            <option value="<?php echo $y; ?>" <?php echo $selectedYear === $y ? 'selected' : ''; ?>><?php echo $y; ?></option>
+                        <?php } ?>
+                    </select>
+                    <button type="submit" class="btn btn-primary">Refresh</button>
+                    <span style="margin-left:20px; color:#666;">Update terakhir: <?php echo date('Y-m-d H:i:s'); ?></span>
+                </form>
+            </div>
+        </div>
+
+        <div class="row" style="margin:0 20px 20px 20px;">
+            <div class="col-md-4">
+                <div style="background:#00c0ef;color:#fff;padding:20px;border-radius:6px;">
+                    <div style="font-size:18px;">Total Bulan Dipilih</div>
+                    <div style="font-size:32px;font-weight:bold; margin-top:10px;">Rp <?php echo number_format($currentTotal,0,',','.'); ?></div>
+                    <div style="margin-top:10px;"><?php echo $selectedMonthName.' '.$selectedYear; ?></div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div style="background:#f39c12;color:#fff;padding:20px;border-radius:6px;">
+                    <div style="font-size:18px;">Total Bulan Lalu</div>
+                    <div style="font-size:32px;font-weight:bold; margin-top:10px;">Rp <?php echo number_format($previousTotal,0,',','.'); ?></div>
+                    <div style="margin-top:10px;"><?php echo $previousMonthName.' '.date('Y', strtotime($previousStart)); ?></div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div style="background:#dd4b39;color:#fff;padding:20px;border-radius:6px;">
+                    <div style="font-size:18px;">Perubahan</div>
+                    <div style="font-size:32px;font-weight:bold; margin-top:10px;"><?php echo ($changePercent >= 0 ? '+' : '') . $changePercent; ?>%</div>
+                    <div style="margin-top:10px;">Rp <?php echo number_format($difference,0,',','.'); ?></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row" style="margin:0 20px 20px 20px;">
+            <div class="col-md-12">
+                <div class="box box-info">
+                    <div class="box-header with-border">
+                        <h3 class="box-title">Pembelian <?php echo $selectedMonthName.' '.$selectedYear; ?> vs <?php echo $previousMonthName.' '.date('Y', strtotime($previousStart)); ?></h3>
+                    </div>
+                    <div class="box-body">
+                        <div id="grafik_trbmasuk" style="height:340px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
 	 
   <?php
   echo "<p align=right>Login : $hari_ini, $tgl_awal <br>
@@ -63,6 +201,7 @@ if ($_GET['module']=='home'){
  
  ";
   
+  echo '<script>window.grafikTrbmasukData = ' . $chartDataJson . ';</script>';
 }
 // Bagian user admin
 elseif ($_GET['module']=='admin'){
