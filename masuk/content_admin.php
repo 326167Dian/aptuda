@@ -66,9 +66,12 @@ if ($_GET['module']=='home'){
 
     $selectedMonth = isset($_GET['bulan']) ? intval($_GET['bulan']) : intval(date('m'));
     $selectedYear = isset($_GET['tahun']) ? intval($_GET['tahun']) : intval(date('Y'));
+    $chartMode = isset($_GET['tampilan']) ? $_GET['tampilan'] : 'pembelian';
+    $chartMode = $chartMode === 'penjualan' ? 'penjualan' : 'pembelian';
+    $chartModeLabel = $chartMode === 'penjualan' ? 'Penjualan' : 'Pembelian';
+
     $selectedMonth = max(1, min(12, $selectedMonth));
     $selectedYear = max(2000, min(2100, $selectedYear));
-
     $selectedMonth = str_pad($selectedMonth, 2, '0', STR_PAD_LEFT);
     $currentPeriod = "$selectedYear-$selectedMonth";
     $currentStart = "$currentPeriod-01";
@@ -77,10 +80,20 @@ if ($_GET['module']=='home'){
     $previousEnd = date('Y-m-t', strtotime($previousStart));
     $previousPeriod = date('Y-m', strtotime($previousStart));
 
-    $sqlGrafik = "SELECT DATE_FORMAT(tgl_trbmasuk, '%Y-%m-%d') AS tgl, SUM(ttl_trbmasuk) AS total ";
-    $sqlGrafik .= "FROM trbmasuk ";
-    $sqlGrafik .= "WHERE tgl_trbmasuk BETWEEN '$previousStart' AND '$currentEnd' ";
-    $sqlGrafik .= "GROUP BY DATE_FORMAT(tgl_trbmasuk, '%Y-%m-%d') ";
+    if ($chartMode === 'penjualan') {
+        $dateField = 'tgl_trkasir';
+        $totalField = 'nilai_transaksi';
+        $tableName = 'trkasir';
+    } else {
+        $dateField = 'tgl_trbmasuk';
+        $totalField = 'ttl_trbmasuk';
+        $tableName = 'trbmasuk';
+    }
+
+    $sqlGrafik = "SELECT DATE_FORMAT($dateField, '%Y-%m-%d') AS tgl, SUM($totalField) AS total ";
+    $sqlGrafik .= "FROM $tableName ";
+    $sqlGrafik .= "WHERE $dateField BETWEEN '$previousStart' AND '$currentEnd' ";
+    $sqlGrafik .= "GROUP BY DATE_FORMAT($dateField, '%Y-%m-%d') ";
     $sqlGrafik .= "ORDER BY tgl";
     $hasilGrafik = mysqli_query($GLOBALS['___mysqli_ston'], $sqlGrafik);
     $currentTotals = array();
@@ -150,6 +163,11 @@ if ($_GET['module']=='home'){
                             <option value="<?php echo $y; ?>" <?php echo $selectedYear === $y ? 'selected' : ''; ?>><?php echo $y; ?></option>
                         <?php } ?>
                     </select>
+                    <label style="margin-right:8px; margin-left:15px;">Tampilan</label>
+                    <select name="tampilan" class="form-control" style="margin-right:10px;">
+                        <option value="pembelian" <?php echo $chartMode === 'pembelian' ? 'selected' : ''; ?>>Pembelian</option>
+                        <option value="penjualan" <?php echo $chartMode === 'penjualan' ? 'selected' : ''; ?>>Penjualan</option>
+                    </select>
                     <button type="submit" class="btn btn-primary">Refresh</button>
                     <span style="margin-left:20px; color:#666;">Update terakhir: <?php echo date('Y-m-d H:i:s'); ?></span>
                 </form>
@@ -159,7 +177,7 @@ if ($_GET['module']=='home'){
         <div class="row" style="margin:0 20px 20px 20px;">
             <div class="col-md-4">
                 <div style="background:#00c0ef;color:#fff;padding:20px;border-radius:6px;">
-                    <div style="font-size:18px;">Total Bulan Dipilih</div>
+                    <div style="font-size:18px;">Total <?php echo $chartModeLabel; ?> Bulan Dipilih</div>
                     <div style="font-size:32px;font-weight:bold; margin-top:10px;">Rp <?php echo number_format($currentTotal,0,',','.'); ?></div>
                     <div style="margin-top:10px;"><?php echo $selectedMonthName.' '.$selectedYear; ?></div>
                 </div>
@@ -184,9 +202,10 @@ if ($_GET['module']=='home'){
             <div class="col-md-12">
                 <div class="box box-info">
                     <div class="box-header with-border">
-                        <h3 class="box-title">Pembelian <?php echo $selectedMonthName.' '.$selectedYear; ?> vs <?php echo $previousMonthName.' '.date('Y', strtotime($previousStart)); ?></h3>
+                        <h3 class="box-title"><?php echo $chartModeLabel.' '.$selectedMonthName.' '.$selectedYear; ?> vs <?php echo $previousMonthName.' '.date('Y', strtotime($previousStart)); ?></h3>
                     </div>
                     <div class="box-body">
+                        <p>X = tanggal <?php echo strtolower($chartModeLabel); ?>, Y = total Rupiah dari <code><?php echo $totalField; ?></code>.</p>
                         <div id="grafik_trbmasuk" style="height:340px;"></div>
                     </div>
                 </div>
