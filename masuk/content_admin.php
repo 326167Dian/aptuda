@@ -33,7 +33,7 @@ document.location = delUrl;
             return;
         }
 
-        if (mode === 'pelanggan') {
+        if (mode === 'pelanggan' || mode === 'piutang') {
             new Morris.Bar({
                 element: 'grafik_trbmasuk',
                 data: data,
@@ -83,10 +83,20 @@ if ($_GET['module']=='home'){
     $selectedMonth = isset($_GET['bulan']) ? intval($_GET['bulan']) : intval(date('m'));
     $selectedYear = isset($_GET['tahun']) ? intval($_GET['tahun']) : intval(date('Y'));
     $chartMode = isset($_GET['tampilan']) ? $_GET['tampilan'] : 'pembelian';
-    if (!in_array($chartMode, array('pembelian', 'penjualan', 'pelanggan', 'kasmasuk'))) {
+    if (!in_array($chartMode, array('pembelian', 'penjualan', 'pelanggan', 'piutang', 'kasmasuk'))) {
         $chartMode = 'pembelian';
     }
-    $chartModeLabel = $chartMode === 'penjualan' ? 'Penjualan' : ($chartMode === 'pelanggan' ? 'Pelanggan' : ($chartMode === 'kasmasuk' ? 'Kas Masuk' : 'Pembelian'));
+    if ($chartMode === 'penjualan') {
+        $chartModeLabel = 'Penjualan';
+    } elseif ($chartMode === 'pelanggan') {
+        $chartModeLabel = 'Pelanggan';
+    } elseif ($chartMode === 'piutang') {
+        $chartModeLabel = 'Piutang';
+    } elseif ($chartMode === 'kasmasuk') {
+        $chartModeLabel = 'Kas Masuk';
+    } else {
+        $chartModeLabel = 'Pembelian';
+    }
 
     $selectedMonth = max(1, min(12, $selectedMonth));
     $selectedYear = max(2000, min(2100, $selectedYear));
@@ -98,11 +108,7 @@ if ($_GET['module']=='home'){
     $previousEnd = date('Y-m-t', strtotime($previousStart));
     $previousPeriod = date('Y-m', strtotime($previousStart));
 
-    if ($chartMode === 'penjualan' || $chartMode === 'kasmasuk') {
-        $dateField = 'tgl_trkasir';
-        $totalField = 'nilai_transaksi';
-        $tableName = 'trkasir';
-    } elseif ($chartMode === 'pelanggan') {
+    if (in_array($chartMode, array('penjualan', 'kasmasuk', 'pelanggan', 'piutang'))) {
         $dateField = 'tgl_trkasir';
         $totalField = 'nilai_transaksi';
         $tableName = 'trkasir';
@@ -113,11 +119,14 @@ if ($_GET['module']=='home'){
     }
 
     $chartData = array();
-    if ($chartMode === 'pelanggan') {
+    if ($chartMode === 'pelanggan' || $chartMode === 'piutang') {
         $sqlGrafik = "SELECT nm_pelanggan AS pelanggan, SUM($totalField) AS total ";
         $sqlGrafik .= "FROM $tableName ";
         $sqlGrafik .= "WHERE $dateField BETWEEN '$currentStart' AND '$currentEnd' ";
         $sqlGrafik .= "AND nm_pelanggan IS NOT NULL AND TRIM(nm_pelanggan) <> '' ";
+        if ($chartMode === 'piutang') {
+            $sqlGrafik .= "AND statusbayar <> 'LUNAS' ";
+        }
         $sqlGrafik .= "GROUP BY nm_pelanggan ";
         $sqlGrafik .= "ORDER BY total DESC ";
         $sqlGrafik .= "LIMIT 20";
@@ -131,7 +140,10 @@ if ($_GET['module']=='home'){
             );
         }
 
-        $sqlPrev = "SELECT SUM($totalField) AS total FROM $tableName WHERE $dateField BETWEEN '$previousStart' AND '$previousEnd'";
+        $sqlPrev = "SELECT SUM($totalField) AS total FROM $tableName WHERE $dateField BETWEEN '$previousStart' AND '$previousEnd' ";
+        if ($chartMode === 'piutang') {
+            $sqlPrev .= "AND statusbayar <> 'LUNAS' ";
+        }
         $hasilPrev = mysqli_query($GLOBALS['___mysqli_ston'], $sqlPrev);
         $rprev = mysqli_fetch_assoc($hasilPrev);
         $previousTotal = isset($rprev['total']) ? (float) $rprev['total'] : 0;
@@ -232,6 +244,7 @@ if ($_GET['module']=='home'){
                         <option value="penjualan" <?php echo $chartMode === 'penjualan' ? 'selected' : ''; ?>>Penjualan</option>
                         <option value="kasmasuk" <?php echo $chartMode === 'kasmasuk' ? 'selected' : ''; ?>>Kas Masuk</option>
                         <option value="pelanggan" <?php echo $chartMode === 'pelanggan' ? 'selected' : ''; ?>>Pelanggan</option>
+                        <option value="piutang" <?php echo $chartMode === 'piutang' ? 'selected' : ''; ?>>Piutang</option>
                     </select>
                     <button type="submit" class="btn btn-primary">Refresh</button>
                     <span style="margin-left:20px; color:#666;">Update terakhir: <?php echo date('Y-m-d H:i:s'); ?></span>
@@ -273,7 +286,7 @@ if ($_GET['module']=='home'){
                         <h3 class="box-title"><?php echo $chartModeLabel.' '.$selectedMonthName.' '.$selectedYear; ?> vs <?php echo $previousMonthName.' '.date('Y', strtotime($previousStart)); ?></h3>
                     </div>
                     <div class="box-body">
-                        <?php if ($chartMode === 'pelanggan') { ?>
+                        <?php if ($chartMode === 'pelanggan' || $chartMode === 'piutang') { ?>
                             <p>X = 20  pelanggan Terbanyak, Y = total Rupiah dari <code><?php echo $totalField; ?></code>.</p>
                         <?php } else { ?>
                             <p>X = tanggal <?php echo strtolower($chartModeLabel); ?>, Y = total Rupiah dari <code><?php echo $totalField; ?></code>.</p>
