@@ -11,16 +11,6 @@ else{
     switch($_GET['act']){
         // Tampil Penjualan
         default:
-            $tgl_awal = date('Y-m-d');
-            $tampil_trkasir = mysqli_query($GLOBALS["___mysqli_ston"], "SELECT * FROM trkasir  
-        where tgl_trkasir ='$tgl_awal' order by id_trkasir desc ");
-
-
-            /*$tgl_awal = date('Y-m-d');
-            $tgl_akhir = date('Y-m-d', strtotime('-7 days', strtotime( $tgl_awal)));
-            $tampil_trkasir = mysqli_query($GLOBALS["___mysqli_ston"], "SELECT * FROM trkasir
-              where tgl_trkasir between '$tgl_akhir' and '$tgl_awal'ORDER BY tgl_trkasir desc ") ;*/
-
             ?>
 
 
@@ -41,7 +31,7 @@ else{
                     <br><br>
 
 
-                    <table id="example1" class="table table-bordered table-striped" >
+                    <table id="tbl_trkasir_hariini" class="table table-bordered table-striped" >
                         <thead align="center">
                         <tr>
                             <th>No</th>
@@ -57,98 +47,55 @@ else{
                         </tr>
                         </thead>
                         <tbody>
-                        <?php
-                        $no=1;
-                        $tgl_awal = date('Y-m-d');
-                        while ($r=mysqli_fetch_array($tampil_trkasir)){
-                            $ttl_trkasir = $r['ttl_trkasir'];
-                            $ttl_trkasir2 = format_rupiah($ttl_trkasir);
-                            $ttljual += $ttl_trkasir;
-                            $ttljual1 = format_rupiah($ttljual);
+                        </tbody>
+                    </table>
 
-                              $total= "SELECT id_trkasir, kd_trkasir, SUM(nilai_transaksi)as ttlskrg1
-                                    FROM trkasir WHERE tgl_trkasir='$tgl_awal' " ;
-                            $tunai = "SELECT id_trkasir, kd_trkasir, SUM(ttl_trkasir)as ttlskrg2
-                                    FROM trkasir WHERE tgl_trkasir='$tgl_awal' AND id_carabayar=1  " ;
-                            $transfer = "SELECT id_trkasir, kd_trkasir, SUM(sisa_bayar)as ttlskrg3
-                                    FROM trkasir WHERE tgl_trkasir='$tgl_awal' AND id_carabayar=2 " ;
-                            $tempo = "SELECT id_trkasir, kd_trkasir, SUM(sisa_bayar)as ttlskrg4
-                                    FROM trkasir WHERE tgl_trkasir='$tgl_awal' AND id_carabayar=3 " ;
+                    <script>
+                        $(document).ready(function() {
+                            $('#tbl_trkasir_hariini').DataTable({
+                                processing: true,
+                                serverSide: true,
+                                order: [[0, 'desc']],
+                                ajax: {
+                                    "url": "modul/mod_trkasir/trkasir-serverside.php?action=table_data_today",
+                                    "dataType": "JSON",
+                                    "type": "POST"
+                                },
+                                "rowCallback": function(row, data, index) {
+                                    if (data['highlight'] == 'yellow') {
+                                        $(row).find('td:eq(0)').css('background-color', '#ffbf00');
+                                        $(row).find('td:eq(1)').css('background-color', '#ffbf00');
+                                    }
+                                },
+                                columns: [
+                                    { "data": "no", "className": "text-center" },
+                                    { "data": "kd_trkasir" },
+                                    { "data": "petugas" },
+                                    { "data": "tgl_trkasir", "className": "text-center" },
+                                    { "data": "nm_pelanggan", "className": "text-center" },
+                                    { "data": "nm_carabayar", "className": "text-center" },
+                                    { "data": "statusbayar", "className": "text-center" },
+                                    {
+                                        "data": "nilai_transaksi",
+                                        "className": "text-right",
+                                        "render": function(data, type, row) {
+                                            return type === 'display' ? formatRupiah(data) : data;
+                                        }
+                                    },
+                                    {
+                                        "data": "ttl_trkasir",
+                                        "className": "text-right",
+                                        "render": function(data, type, row) {
+                                            return type === 'display' ? formatRupiah(data) : data;
+                                        }
+                                    },
+                                    { "data": "aksi", "orderable": false, "className": "text-center" }
+                                ]
+                            });
+                        });
+                    </script>
 
-
-                              $query2=mysqli_query($GLOBALS["___mysqli_ston"], $total);
-                            $query3=mysqli_query($GLOBALS["___mysqli_ston"], $tunai);
-                            $query4=mysqli_query($GLOBALS["___mysqli_ston"], $transfer);
-                            $query5=mysqli_query($GLOBALS["___mysqli_ston"], $tempo);
-
-
-                            $r2=mysqli_fetch_array($query2);
-                            $ttlskrg = $r2['ttlskrg1'];
-                            $ttlskrg2 = format_rupiah($ttlskrg);
-
-                            $r3=mysqli_fetch_array($query3);
-                            $ttltunai = $r3['ttlskrg2'];
-                            $ttltunai2 = format_rupiah($ttltunai);
-
-                            $r4=mysqli_fetch_array($query4);
-                            $ttltransfer = $r4['ttlskrg3'];
-                            $ttltransfer2 = format_rupiah($ttltransfer);
-
-                            $r5=mysqli_fetch_array($query5);
-                            $ttltempo = $r5['ttlskrg4'];
-                            $ttltempo2 = format_rupiah($ttltempo);
-                            $nilai_transaksi= format_rupiah($r['nilai_transaksi']);
-
-                            if(($r['id_carabayar']==3 && $r['statusbayar']=='PROSES') || ($r['id_carabayar']==2 && $r['statusbayar']=='PROSES') ){
-                                echo"<td style='background-color:#ffbf00;'>$no</td>
-											 <td style='background-color:#ffbf00;'>$r[kd_trkasir]</td>";}
-                            else{ echo "<td>$no</td>
-                                                <td>$r[kd_trkasir]";
-                            }
-                            echo"     
-										
-											<td>$r[petugas]</td>
-											<td>$r[tgl_trkasir]</td>	
-											<td>$r[nm_pelanggan]</td>";
-                            $cabay = mysqli_query($GLOBALS["___mysqli_ston"],
-                                "SELECT * FROM trkasir JOIN carabayar on trkasir.id_carabayar = carabayar.id_carabayar WHERE trkasir.kd_trkasir ='$r[kd_trkasir]'");
-                            $cabay2 = mysqli_fetch_array($cabay);
-
-                            echo"
-											<td align='center'>$cabay2[nm_carabayar]</td>
-											<td align='center'>$r[statusbayar]</td>
-											<td align='right'>$nilai_transaksi</td>											
-											";
-                            echo"
-											<td align=right>$ttl_trkasir2</td>										
-											<td align='center'>";
-                            $lupa = $_SESSION['level'];
-                            if($lupa=='pemilik')
-                            {echo" <a href='?module=trkasir&act=ubah&id=$r[id_trkasir]' title='EDIT' class='glyphicon glyphicon-pencil'>&nbsp</a>
-                                             <a href=javascript:confirmdelete('$aksi?module=trkasir&act=hapus&id=$r[id_trkasir]') title='HAPUS' class='glyphicon glyphicon-remove'>&nbsp</a>                                            
-                                            ";
-                            }
-                            ?>
-                            <a class='glyphicon glyphicon-print' onclick="window.open('modul/mod_laporan/faktur.php?kd_trkasir=<?php echo $r['kd_trkasir']?>',
-                                    'nama window','width=700,height=400,toolbar=no,location=no,directories=no,status=no,menubar=no, ' +
-                                    'scrollbars=no,resizable=yes,copyhistory=no')">&nbsp</a>
-                            <?php
-
-                            echo"</td>
-										</tr>";
-                            $no++;
-                        }
-                        echo "</tbody>
-                     <!--       <tr>
-                                <td colspan='3'><strong>Tunai Rp. $ttltunai2 </strong>  </td>
-                                <td colspan='2'><strong> Transfer Rp. $ttltransfer2   ,- </strong></td> 
-                                <td colspan='2'><strong> Tempo Rp. $ttltempo2  ,- </strong></td> 
-                            </tr>
-                                <td colspan='5'><h3><center>Total Hari ini</center></h3>  </td>
-                                <td colspan='2'> <h3><strong> Rp. $ttlskrg2  ,- </strong></h3></td> 
-                            </tr>-->
-                        </table>";
-                        ?>
+                    <?php ?>
                         <table class="table table-striped table-bordered table-responsive">
                             <h4>Ringkasan Transaksi</h4>
                             <thead>

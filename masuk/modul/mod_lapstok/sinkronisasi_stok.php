@@ -11,62 +11,47 @@ else{
     include "../../../configurasi/fungsi_thumb.php";
     include "../../../configurasi/library.php";
 
-    $tampil_barang = mysqli_query($GLOBALS["___mysqli_ston"], "
-    SELECT tgl_trkasir, sum(nilai_transaksi) as tunai from trkasir 
-    where id_carabayar=1 and statusbayar='LUNAS' and tgl_trkasir between '2025-02-03' and '2025-03-28' 
-    GROUP by tgl_trkasir");
+    $conn = $GLOBALS["___mysqli_ston"];
 
-     while ($r1=mysqli_fetch_array($tampil_barang))
-     { $transfer = $db->query("SELECT tgl_trkasir, sum(nilai_transaksi) as trans from trkasir 
-        where id_carabayar=2 and statusbayar='LUNAS' and tgl_trkasir='$r1[tgl_trkasir]' ");
-        $tx=$transfer->fetch_array();
+    $tampil_barang = mysqli_query($conn, "
+        SELECT t1.tgl_trkasir, t1.tunai, COALESCE(t2.trans, 0) as trans
+        FROM (
+            SELECT tgl_trkasir, SUM(nilai_transaksi) as tunai
+            FROM trkasir
+            WHERE id_carabayar = 1 AND statusbayar = 'LUNAS'
+                AND tgl_trkasir BETWEEN '2025-02-03' AND '2025-03-28'
+            GROUP BY tgl_trkasir
+        ) t1
+        LEFT JOIN (
+            SELECT tgl_trkasir, SUM(nilai_transaksi) as trans
+            FROM trkasir
+            WHERE id_carabayar = 2 AND statusbayar = 'LUNAS'
+                AND tgl_trkasir BETWEEN '2025-02-03' AND '2025-03-28'
+            GROUP BY tgl_trkasir
+        ) t2 ON t2.tgl_trkasir = t1.tgl_trkasir
+    ");
 
-        mysqli_query($GLOBALS["___mysqli_ston"],"insert into jurnal (
-            tanggal,
-            ket,
-            petugas,
-            idjenis,
-            debit,
-            kredit,
-            carabayar,
-            current
-            )
-        values( '$r1[tgl_trkasir]',
-            'Hasil Penjualan Tunai $r1[tgl_trkasir]',
-            'Team IT',
-            '6',
-            '0',
-            '$r1[tunai]',
-            'TUNAI',
-            '2025-04-04 00:00:01'
-            )
-            ");
-        
-        mysqli_query($GLOBALS["___mysqli_ston"],"insert into jurnal (
-            tanggal,
-            ket,
-            petugas,
-            idjenis,
-            debit,
-            kredit,
-            carabayar,
-            current
-            )
-        values( '$r1[tgl_trkasir]',
-            'Hasil Penjualan Transfer $r1[tgl_trkasir]',
-            'Team IT',
-            '6',
-            '0',
-            '$tx[trans]',
-            'TRANSFER',
-            '2025-04-04 00:00:01'
-            )
-            ");
+    $stmt = mysqli_prepare($conn, "
+        INSERT INTO jurnal (tanggal, ket, petugas, idjenis, debit, kredit, carabayar, current)
+        VALUES (?, ?, 'Team IT', '6', '0', ?, ?, '2025-04-04 00:00:01')
+    ");
+    mysqli_stmt_bind_param($stmt, "ssds", $p_tgl, $p_ket, $p_kredit, $p_carabayar);
 
-     }
+    while ($r1 = mysqli_fetch_assoc($tampil_barang)) {
+        $p_tgl = $r1['tgl_trkasir'];
 
-    
-  
+        $p_ket = "Hasil Penjualan Tunai {$p_tgl}";
+        $p_kredit = $r1['tunai'];
+        $p_carabayar = 'TUNAI';
+        mysqli_stmt_execute($stmt);
+
+        $p_ket = "Hasil Penjualan Transfer {$p_tgl}";
+        $p_kredit = $r1['trans'];
+        $p_carabayar = 'TRANSFER';
+        mysqli_stmt_execute($stmt);
+    }
+
+    mysqli_stmt_close($stmt);
     }
      
 
