@@ -11,22 +11,9 @@ $aksi_trkasir = "masuk/modul/mod_trkasir/aksi_trkasir.php";
 switch($_GET[act]){
   // Tampil Penjualan
   default:
-     /* $tgl_awal = date('Y-m-d');
-
-      $tampil_trkasir = mysqli_query($GLOBALS["___mysqli_ston"], "SELECT * FROM trkasir  
-        where tgl_trkasir ='$tgl_awal' ");*/
-
-
-        $tgl_awal = date('Y-m-d');
-        $tgl_kemarin = date('Y-m-d', strtotime('-1 days', strtotime( $tgl_awal)));
-        $tgl_akhir = date('Y-m-d', strtotime('-360 days', strtotime( $tgl_awal)));
-        $tampil_trkasir = mysqli_query($GLOBALS["___mysqli_ston"], "SELECT * FROM trkasir  
-        where tgl_trkasir between '$tgl_akhir' and '$tgl_kemarin'ORDER BY id_trkasir desc ") ;
-      
-        
 	  ?>
-			
-			
+
+
 			<div class="box box-primary box-solid">
 				<div class="box-header with-border">
 					<h3 class="box-title">TRANSAKSI PENJUALAN SEBELUMNYA</h3>
@@ -35,7 +22,7 @@ switch($_GET[act]){
                     </div><!-- /.box-tools -->
 				</div>
 				<div class="box-body">
-					
+
                     <a  class ='btn  btn-warning  btn-flat' href='#'></a>
                     <small>* Pembayaran belum lunas</small><br>
                     <a  class ='btn  btn-flat' style="background-color:#E52020" href='#'></a>
@@ -44,9 +31,9 @@ switch($_GET[act]){
 				<!--	<a  class ='btn  btn-warning  btn-flat' href='?module=trkasir&act=penjualansebelum'>PENJUALAN SEBELUMNYA</a>
 					<small>* Pembayaran belum lunas</small> -->
 					<br><br>
-					
-					
-					<table id="example1" class="table table-bordered table-striped" >
+
+
+					<table id="tbl_trkasir" class="table table-bordered table-striped" >
 						<thead>
 							<tr>
 								<th>No</th>
@@ -63,80 +50,61 @@ switch($_GET[act]){
 							</tr>
 						</thead>
 						<tbody>
-						<?php 
-								$no=1;
-								 $tgl_awal = date('Y-m-d');
-								while ($r=mysqli_fetch_array($tampil_trkasir)){
-								$ttl_trkasir = $r['ttl_trkasir'];
-								$ttl_trkasir2 = format_rupiah($ttl_trkasir);
-								$ttljual += $ttl_trkasir;
-								$ttljual1 = format_rupiah($ttljual);
-								$nilai_transaksi=format_rupiah($r['nilai_transaksi']);
-
-                                    $query2=mysqli_query($GLOBALS["___mysqli_ston"], "SELECT                                         
-                                        id_trkasir,
-                                        kd_trkasir,
-                                        SUM(ttl_trkasir)as ttlskrg1                                                              
-                                        FROM trkasir                                         
-                                        WHERE tgl_trkasir='$tgl_awal'");
-                                    $r2=mysqli_fetch_array($query2);
-                                    $ttlskrg = $r2['ttlskrg1'];
-
-                                    $tanggal_1  = new DateTime($r['tgl_trkasir']);
-                                    $tanggal_2 = new DateTime();
-                                    $selisih  = $tanggal_1->diff($tanggal_2);
-                                    
-                                    if(($selisih->m >= 1) && ($r['statusbayar']!='LUNAS')){
-                                        echo"<td style='background-color:#E52020;'>$no</td>
-											 <td style='background-color:#E52020;'>$r[kd_trkasir]</td>";
-                                    }else
-
-                                    if(($r['id_carabayar']==3 && $r['statusbayar']=='PROSES') || ($r['id_carabayar']==2 && $r['statusbayar']=='PROSES') ){
-                                        echo"<td style='background-color:#ffbf00;'>$no</td>
-											 <td style='background-color:#ffbf00;'>$r[kd_trkasir]</td>";}
-                                    else{ echo "<td>$no</td>
-                                                <td>$r[kd_trkasir]";
-                                    }
-
-									echo"	<td>$r[tgl_trkasir]</td>
-									        <td>$r[petugas]</td>
-											<td>$r[nm_pelanggan]</td>";
-									$cabay = mysqli_query($GLOBALS["___mysqli_ston"],
-                                        "SELECT * FROM trkasir JOIN carabayar on trkasir.id_carabayar = carabayar.id_carabayar WHERE trkasir.kd_trkasir ='$r[kd_trkasir]'");
-									$cabay1 = mysqli_fetch_array($cabay);
-
-									echo"
-											<td align='center'>$cabay1[nm_carabayar]</td>
-											
-											<td align='center'>$r[statusbayar]</td>
-											<td align='center'>$nilai_transaksi</td>
-											";
-									echo"													
-											<td align=right>$ttl_trkasir2</td>
-											
-											 <td><a href='?module=penjualansebelumnya&act=ubah&id=$r[id_trkasir]' title='EDIT' class='glyphicon glyphicon-pencil'>&nbsp</a> 
-											 ";
-											 ?>
-											 <a class='glyphicon glyphicon-print' onclick="window.open('modul/mod_laporan/faktur.php?kd_trkasir=<?php echo $r['kd_trkasir']?>','nama window','width=500,height=600,toolbar=no,location=no,directories=no,status=no,menubar=no, scrollbars=no,resizable=yes,copyhistory=no')">&nbsp</a>
-											 <?php
-											 echo"
-											 <a href=javascript:confirmdelete('$aksi?module=trkasir&act=hapus&id=$r[id_trkasir]') title='HAPUS' class='glyphicon glyphicon-remove'>&nbsp</a>
-											 
-											</td>
-										</tr>";
-								$no++;
-								}
-						echo "</tbody>
-                            
-                        </table>";
-					?>
+						</tbody>
+					</table>
 				</div>
 			</div>
 
-
+			<script>
+			$(document).ready(function() {
+				$('#tbl_trkasir').DataTable({
+					processing: true,
+					serverSide: true,
+					order: [[0, 'desc']],
+					ajax: {
+						"url": "modul/mod_trkasir/trkasir-serverside.php?action=table_data",
+						"dataType": "JSON",
+						"type": "POST"
+					},
+					"rowCallback": function(row, data, index) {
+						if (data['highlight'] == 'red') {
+							$(row).find('td:eq(0)').css('background-color', '#E52020');
+							$(row).find('td:eq(1)').css('background-color', '#E52020');
+						} else if (data['highlight'] == 'yellow') {
+							$(row).find('td:eq(0)').css('background-color', '#ffbf00');
+							$(row).find('td:eq(1)').css('background-color', '#ffbf00');
+						}
+					},
+					columns: [
+						{ "data": "no", "className": "text-center" },
+						{ "data": "kd_trkasir" },
+						{ "data": "tgl_trkasir" },
+						{ "data": "petugas" },
+						{ "data": "nm_pelanggan" },
+						{ "data": "nm_carabayar", "className": "text-center" },
+						{ "data": "statusbayar", "className": "text-center" },
+						{
+							"data": "nilai_transaksi",
+							"className": "text-center",
+							"render": function(data, type, row) {
+								return formatRupiah(data);
+							}
+						},
+						{
+							"data": "ttl_trkasir",
+							"className": "text-right",
+							"render": function(data, type, row) {
+								return formatRupiah(data);
+							}
+						},
+						{ "data": "aksi", "orderable": false }
+					]
+				});
+			});
+			</script>
 
 <?php
-    
+
     break;
 	
     case "tambah":

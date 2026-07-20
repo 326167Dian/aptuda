@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -X POST http://localhost/aptuda/masuk/modul/mod_trkasir/trkasir-serverside.php?action=table_data --data 'draw=1&start=0&length=5&order[0][column]=0&order[0][dir]=desc&search[value]=')"
+    ]
+  }
+}
