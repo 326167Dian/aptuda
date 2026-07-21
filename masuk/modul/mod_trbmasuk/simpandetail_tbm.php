@@ -1,282 +1,224 @@
-<?php 
+<?php
 include "../../../configurasi/koneksi.php";
 
-$kd_trbmasuk = $_POST['kd_trbmasuk'];
-$id_barang = $_POST['id_barang'];
-$kd_barang = $_POST['kd_barang'];
-$nmbrg_dtrbmasuk = $_POST['nmbrg_dtrbmasuk'];
-$qty_dtrbmasuk = $_POST['qty_dtrbmasuk'];
-$diskon = $_POST['diskon'];
-$sat_dtrbmasuk = $_POST['sat_dtrbmasuk'];
-$hrgsat_dtrbmasuk = $_POST['hrgsat_dtrbmasuk'];
+$conn = $GLOBALS["___mysqli_ston"];
+
+$kd_trbmasuk       = $_POST['kd_trbmasuk'];
+$id_barang         = $_POST['id_barang'];
+$kd_barang         = $_POST['kd_barang'];
+$nmbrg_dtrbmasuk   = $_POST['nmbrg_dtrbmasuk'];
+$qty_dtrbmasuk     = $_POST['qty_dtrbmasuk'];
+$diskon            = $_POST['diskon'];
+$sat_dtrbmasuk     = $_POST['sat_dtrbmasuk'];
+$hrgsat_dtrbmasuk  = $_POST['hrgsat_dtrbmasuk'];
 $hrgjual_dtrbmasuk = $_POST['hrgjual_dtrbmasuk'];
-$jns_obat   = $_POST['jns_obat'];
+$jns_obat          = $_POST['jns_obat'];
+$tipe              = $_POST['tipe'];
 
-$tipe = $_POST['tipe'];
-$faktordiskon = (1-($diskon/100));
-$hargajadi = $hrgsat_dtrbmasuk * $faktordiskon;
+$faktordiskon = 1 - ($diskon / 100);
+$hargajadi    = $hrgsat_dtrbmasuk * $faktordiskon;
 
-
-if($qty_dtrbmasuk == ""){
-$qty_dtrbmasuk = "1";
-}else{}
-if($diskon == ""){
+if ($qty_dtrbmasuk == "") {
+    $qty_dtrbmasuk = "1";
+}
+if ($diskon == "") {
     $diskon = "0";
-}else{}
-
-$cekstok = mysqli_query($GLOBALS["___mysqli_ston"], "SELECT id_barang, stok_barang, stok_retail, konversi FROM barang 
-            WHERE id_barang='$id_barang'");
-$rst = mysqli_fetch_array($cekstok);
-$konversi = $rst['konversi'];
-if($tipe == 1) {
-    $qty_masukretail = $qty_dtrbmasuk * $konversi;
 }
-else {
-    $qty_masukretail = $qty_dtrbmasuk;
-}
-// else{
 
-// }
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
-//cek apakah barang sudah ada
-$cekdetail=mysqli_query($GLOBALS["___mysqli_ston"], "SELECT * FROM trbmasuk_detail 
-WHERE kd_barang='$kd_barang' AND kd_trbmasuk='$kd_trbmasuk' AND tipe='$tipe'");
+try {
+    mysqli_begin_transaction($conn);
 
-$ketemucekdetail=mysqli_num_rows($cekdetail);
-$rcek=mysqli_fetch_array($cekdetail);
-if ($ketemucekdetail > 0){
-    
-    //update stok
-    $cekstok=mysqli_query($GLOBALS["___mysqli_ston"], "SELECT * FROM barang 
-    WHERE id_barang='$id_barang'");
-    $rst=mysqli_fetch_array($cekstok);
-    
-    $stok_barang = $rst['stok_barang'];
-    $stok_retail = $rst['stok_retail'];
+    $stmt = mysqli_prepare($conn, "SELECT konversi FROM barang WHERE id_barang = ?");
+    mysqli_stmt_bind_param($stmt, "s", $id_barang);
+    mysqli_stmt_execute($stmt);
+    $rst = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
     $konversi = $rst['konversi'];
 
-    if ($tipe==1){
-        $id_dtrbmasuk = $rcek['id_dtrbmasuk'];
-        $qtylama = $rcek['qty_dtrbmasuk'];
-        $qtyretaillama = $rcek['qty_mskretail'];
-        $qtyretailbaru = $qtyretaillama + ($qty_dtrbmasuk * $konversi);
-        $ttlqty = $qtylama + $qty_dtrbmasuk;
-        $ttlharga = $ttlqty * $hrgsat_dtrbmasuk * $faktordiskon;
-
-        mysqli_query($GLOBALS["___mysqli_ston"], "UPDATE trbmasuk_detail SET 
-                                               qty_dtrbmasuk = '$ttlqty',
-                                               qty_mskretail = '$qtyretailbaru',
-                                                      diskon = '$diskon',
-                                            hrgsat_dtrbmasuk = '$hrgsat_dtrbmasuk',
-                                            hrgttl_dtrbmasuk = '$ttlharga'
-                                            WHERE id_dtrbmasuk = '$id_dtrbmasuk'");
-                                            
-        $stok_retail_lama = $stok_retail;
-        $stok_retail_baru = ($stok_retail_lama) + ($qty_dtrbmasuk * $konversi);
-                    
-        $stok_barang_lama = $stok_barang;
-        // $stok_barang_baru = (($stok_barang_lama + $qtylama) - $ttlqty);
-        $stok_barang_baru = $stok_barang_lama + $qty_dtrbmasuk;
-                    
-        mysqli_query($GLOBALS["___mysqli_ston"], "UPDATE barang SET 
-                                                        stok_barang = '$stok_barang_baru',
-                                                        hrgsat_barang = '$hargajadi',
-                                                        stok_retail = '$stok_retail_baru',
-                                                        hrgjual_barang = '$hrgjual_dtrbmasuk',
-                                                        jenisobat = '$jns_obat'
-                                                        WHERE id_barang = '$id_barang'");
-                
-        // echo $stok_barang_baru;
-        $data = array(
-                    'stok_barang_baru'  => $stok_barang_baru,
-                    'stok_retail_baru'  => $stok_retail_baru
-                );                                                
-        echo json_encode($data);
-                                                            
+    if ($tipe == 1) {
+        $qty_masukretail = $qty_dtrbmasuk * $konversi;
+    } else {
+        $qty_masukretail = $qty_dtrbmasuk;
     }
-    else{
-        $id_dtrbmasuk = $rcek['id_dtrbmasuk'];
-        $qtylama = $rcek['qty_dtrbmasuk'];
-        $qtyretaillama = $rcek['qty_mskretail'];
-        $qtyretailbaru = $qtyretaillama + $qty_dtrbmasuk ;
-        $ttlqty = $qtylama + $qty_dtrbmasuk;
-        $ttlharga = $qtyretailbaru * $hrgsat_dtrbmasuk * $faktordiskon;
-        $hargajadi = $hrgsat_dtrbmasuk * $faktordiskon;
 
-        mysqli_query($GLOBALS["___mysqli_ston"], "UPDATE trbmasuk_detail SET 
-                                               qty_dtrbmasuk = '$ttlqty',
-                                               qty_mskretail = '$qtyretailbaru',
-                                            hrgsat_dtrbmasuk = '$hrgsat_dtrbmasuk',
-                                            hrgttl_dtrbmasuk = '$ttlharga'
-                                            WHERE id_dtrbmasuk = '$id_dtrbmasuk'");
-                                            
-        $stok_retail_lama = $stok_retail;
-        $stok_retail_baru = $stok_retail_lama + $qty_dtrbmasuk;
-                    
-        $stok_barang_lama = $stok_barang;
-        $w = intval($stok_retail_baru/$konversi);
-                    
-        mysqli_query($GLOBALS["___mysqli_ston"], "UPDATE barang SET 
-                                                        stok_barang = '$w',
-                                                        stok_retail = '$stok_retail_baru,
-                                                        hrgsat_retail = '$hargajadi,
-                                                        hrgjual_retail = '$hrgjual_dtrbmasuk',
-                                                        jenisobat = '$jns_obat'
-                                                        WHERE id_barang = '$id_barang'");
-            
-        // echo $w;
-        $data = array(
-                    'stok_barang_baru'  => $w,
-                    'stok_retail_baru'  => $stok_retail_baru
-                );                                                
-        echo json_encode($data);
-                                                    
+    // cek apakah barang sudah ada
+    $stmt = mysqli_prepare($conn, "SELECT * FROM trbmasuk_detail WHERE kd_barang = ? AND kd_trbmasuk = ? AND tipe = ?");
+    mysqli_stmt_bind_param($stmt, "sss", $kd_barang, $kd_trbmasuk, $tipe);
+    mysqli_stmt_execute($stmt);
+    $rcek = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+
+    if ($rcek) {
+
+        // update stok
+        $stmt = mysqli_prepare($conn, "SELECT stok_barang, stok_retail, konversi FROM barang WHERE id_barang = ?");
+        mysqli_stmt_bind_param($stmt, "s", $id_barang);
+        mysqli_stmt_execute($stmt);
+        $rst = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+
+        $stok_barang = $rst['stok_barang'];
+        $stok_retail = $rst['stok_retail'];
+        $konversi    = $rst['konversi'];
+
+        if ($tipe == 1) {
+            $id_dtrbmasuk  = $rcek['id_dtrbmasuk'];
+            $qtylama       = $rcek['qty_dtrbmasuk'];
+            $qtyretaillama = $rcek['qty_mskretail'];
+            $qtyretailbaru = $qtyretaillama + ($qty_dtrbmasuk * $konversi);
+            $ttlqty        = $qtylama + $qty_dtrbmasuk;
+            $ttlharga      = $ttlqty * $hrgsat_dtrbmasuk * $faktordiskon;
+
+            $stmt = mysqli_prepare($conn, "UPDATE trbmasuk_detail SET
+                    qty_dtrbmasuk = ?,
+                    qty_mskretail = ?,
+                    diskon = ?,
+                    hrgsat_dtrbmasuk = ?,
+                    hrgttl_dtrbmasuk = ?
+                    WHERE id_dtrbmasuk = ?");
+            mysqli_stmt_bind_param($stmt, "ssssss", $ttlqty, $qtyretailbaru, $diskon, $hrgsat_dtrbmasuk, $ttlharga, $id_dtrbmasuk);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+
+            $stok_retail_baru = $stok_retail + ($qty_dtrbmasuk * $konversi);
+            $stok_barang_baru = $stok_barang + $qty_dtrbmasuk;
+
+            $stmt = mysqli_prepare($conn, "UPDATE barang SET
+                    stok_barang = ?,
+                    hrgsat_barang = ?,
+                    stok_retail = ?,
+                    hrgjual_barang = ?,
+                    jenisobat = ?
+                    WHERE id_barang = ?");
+            mysqli_stmt_bind_param($stmt, "ssssss", $stok_barang_baru, $hargajadi, $stok_retail_baru, $hrgjual_dtrbmasuk, $jns_obat, $id_barang);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+
+            $data = array(
+                'stok_barang_baru' => $stok_barang_baru,
+                'stok_retail_baru' => $stok_retail_baru
+            );
+        } else {
+            $id_dtrbmasuk  = $rcek['id_dtrbmasuk'];
+            $qtylama       = $rcek['qty_dtrbmasuk'];
+            $qtyretaillama = $rcek['qty_mskretail'];
+            $qtyretailbaru = $qtyretaillama + $qty_dtrbmasuk;
+            $ttlqty        = $qtylama + $qty_dtrbmasuk;
+            $ttlharga      = $qtyretailbaru * $hrgsat_dtrbmasuk * $faktordiskon;
+
+            $stmt = mysqli_prepare($conn, "UPDATE trbmasuk_detail SET
+                    qty_dtrbmasuk = ?,
+                    qty_mskretail = ?,
+                    hrgsat_dtrbmasuk = ?,
+                    hrgttl_dtrbmasuk = ?
+                    WHERE id_dtrbmasuk = ?");
+            mysqli_stmt_bind_param($stmt, "sssss", $ttlqty, $qtyretailbaru, $hrgsat_dtrbmasuk, $ttlharga, $id_dtrbmasuk);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+
+            $stok_retail_baru = $stok_retail + $qty_dtrbmasuk;
+            $w = intval($stok_retail_baru / $konversi);
+
+            $stmt = mysqli_prepare($conn, "UPDATE barang SET
+                    stok_barang = ?,
+                    stok_retail = ?,
+                    hrgsat_retail = ?,
+                    hrgjual_retail = ?,
+                    jenisobat = ?
+                    WHERE id_barang = ?");
+            mysqli_stmt_bind_param($stmt, "ssssss", $w, $stok_retail_baru, $hargajadi, $hrgjual_dtrbmasuk, $jns_obat, $id_barang);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+
+            $data = array(
+                'stok_barang_baru' => $w,
+                'stok_retail_baru' => $stok_retail_baru
+            );
+        }
+    } else {
+        $faktordiskon = 1 - ($diskon / 100);
+        $ttlharga = $qty_dtrbmasuk * $hrgsat_dtrbmasuk * $faktordiskon;
+
+        $stmt = mysqli_prepare($conn, "INSERT INTO trbmasuk_detail
+                (kd_trbmasuk, id_barang, kd_barang, nmbrg_dtrbmasuk, qty_dtrbmasuk, qty_mskretail,
+                 diskon, sat_dtrbmasuk, hrgsat_dtrbmasuk, hrgttl_dtrbmasuk, tipe)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        mysqli_stmt_bind_param(
+            $stmt,
+            "sssssssssss",
+            $kd_trbmasuk,
+            $id_barang,
+            $kd_barang,
+            $nmbrg_dtrbmasuk,
+            $qty_dtrbmasuk,
+            $qty_masukretail,
+            $diskon,
+            $sat_dtrbmasuk,
+            $hrgsat_dtrbmasuk,
+            $ttlharga,
+            $tipe
+        );
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+
+        // update stok
+        $stmt = mysqli_prepare($conn, "SELECT stok_barang, stok_retail, konversi FROM barang WHERE id_barang = ?");
+        mysqli_stmt_bind_param($stmt, "s", $id_barang);
+        mysqli_stmt_execute($stmt);
+        $rst = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+
+        $stok_barang = $rst['stok_barang'];
+        $stok_retail = $rst['stok_retail'];
+        $konversi    = $rst['konversi'];
+
+        if ($tipe == 1) {
+            $stok_retail_baru = $stok_retail + ($qty_dtrbmasuk * $konversi);
+            $stok_barang_baru = $stok_barang + $qty_dtrbmasuk;
+
+            $stmt = mysqli_prepare($conn, "UPDATE barang SET
+                    stok_barang = ?,
+                    stok_retail = ?,
+                    hrgsat_barang = ?,
+                    hrgjual_barang = ?,
+                    jenisobat = ?
+                    WHERE id_barang = ?");
+            mysqli_stmt_bind_param($stmt, "ssssss", $stok_barang_baru, $stok_retail_baru, $hargajadi, $hrgjual_dtrbmasuk, $jns_obat, $id_barang);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+
+            $data = array(
+                'stok_barang_baru' => $stok_barang_baru,
+                'stok_retail_baru' => $stok_retail_baru
+            );
+        } elseif ($tipe == 2) {
+            $stok_retail_baru = $stok_retail + $qty_dtrbmasuk;
+            $w = intval($stok_retail_baru / $konversi);
+
+            $stmt = mysqli_prepare($conn, "UPDATE barang SET
+                    stok_barang = ?,
+                    stok_retail = ?,
+                    hrgsat_retail = ?,
+                    hrgjual_retail = ?,
+                    jenisobat = ?
+                    WHERE id_barang = ?");
+            mysqli_stmt_bind_param($stmt, "ssssss", $w, $stok_retail_baru, $hargajadi, $hrgjual_dtrbmasuk, $jns_obat, $id_barang);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+
+            $data = array(
+                'stok_barang_baru' => $w,
+                'stok_retail_baru' => $stok_retail_baru
+            );
+        }
     }
-    
-// //update stok
-// $cekstok=mysqli_query($GLOBALS["___mysqli_ston"], "SELECT * FROM barang 
-// WHERE id_barang='$id_barang'");
-// $rst=mysqli_fetch_array($cekstok);
 
-// $stok_barang = $rst['stok_barang'];
-// $stok_retail = $rst['stok_retail'];
-// $konversi = $rst['konversi'];
-            
-            // if($tipe == 1){
-                // $stok_retail_lama = $stok_retail;
-                // $stok_retail_baru = ($stok_retail_lama) + ($qty_dtrbmasuk * $konversi);
-                    
-                // $stok_barang_lama = $stok_barang;
-                // // $stok_barang_baru = (($stok_barang_lama + $qtylama) - $ttlqty);
-                // $stok_barang_baru = $stok_barang_lama + $qty_dtrbmasuk;
-                    
-                // mysqli_query($GLOBALS["___mysqli_ston"], "UPDATE barang SET 
-                //                                                 stok_barang = '$stok_barang_baru',
-                //                                                 hrgsat_barang = '$hargajadi',
-                //                                                 stok_retail = '$stok_retail_baru'
-                //                                                 WHERE id_barang = '$id_barang'");
-                
-                // // echo $stok_barang_baru;
-                // $data = array(
-                //         'stok_barang_baru'  => $stok_barang_baru,
-                //         'stok_retail_baru'  => $stok_retail_baru
-                //     );                                                
-                // echo json_encode($data);
-                
-            // } elseif($tipe == 2){
-                // $stok_retail_lama = $stok_retail;
-                // $stok_retail_baru = $stok_retail_lama + $qty_dtrbmasuk;
-                    
-                // $stok_barang_lama = $stok_barang;
-                // $w = intval($stok_retail_baru/$konversi);
-                    
-                // mysqli_query($GLOBALS["___mysqli_ston"], "UPDATE barang SET 
-                //                                                 stok_barang = '$w',
-                //                                                 stok_retail = '$stok_retail_baru,
-                //                                                 hrgsat_retail = '$hargajadi
-                //                                                 WHERE id_barang = '$id_barang'");
-            
-                // // echo $w;
-                // $data = array(
-                //         'stok_barang_baru'  => $w,
-                //         'stok_retail_baru'  => $stok_retail_baru
-                //     );                                                
-                // echo json_encode($data);
-                
-            // }
-            
-// mysqli_query($GLOBALS["___mysqli_ston"], "UPDATE barang SET stok_barang = '$stokakhir' WHERE id_barang = '$id_barang'");
-									
-}else{
-
-    $faktordiskon = (1-($diskon/100));
-$ttlharga = $qty_dtrbmasuk * $hrgsat_dtrbmasuk * $faktordiskon;
-
-
-
-mysqli_query($GLOBALS["___mysqli_ston"], "INSERT INTO trbmasuk_detail(kd_trbmasuk,
-										id_barang,
-										kd_barang,
-										nmbrg_dtrbmasuk,
-										qty_dtrbmasuk,
-										qty_mskretail,
-										diskon,
-										sat_dtrbmasuk,
-										hrgsat_dtrbmasuk,
-										hrgttl_dtrbmasuk,
-										tipe)
-								  VALUES('$kd_trbmasuk',
-										'$id_barang',
-										'$kd_barang',
-										'$nmbrg_dtrbmasuk',
-										'$qty_dtrbmasuk',
-										'$qty_masukretail',
-										'$diskon',
-										'$sat_dtrbmasuk',
-										'$hrgsat_dtrbmasuk',
-										'$ttlharga',
-										'$tipe')");
-										
-//update stok
-$cekstok=mysqli_query($GLOBALS["___mysqli_ston"], "SELECT * FROM barang WHERE id_barang = '$id_barang'");
-$rst = mysqli_fetch_array($cekstok);
-
-// $stok_barang = $rst['stok_barang'];
-// $stokakhir = $stok_barang + $qty_dtrbmasuk;
-
-// mysqli_query($GLOBALS["___mysqli_ston"], "UPDATE barang SET stok_barang = '$stokakhir' WHERE id_barang = '$id_barang'");
-
-$stok_barang = $rst['stok_barang'];
-$stok_retail = $rst['stok_retail'];
-$konversi = $rst['konversi'];
-            
-            if($tipe == 1){
-                $stok_retail_lama = $stok_retail;
-                $stok_retail_baru = ($stok_retail_lama) + ($qty_dtrbmasuk * $konversi);
-                    
-                $stok_barang_lama = $stok_barang;
-                // $stok_barang_baru = (($stok_barang_lama + $qtylama) - $ttlqty);
-                $stok_barang_baru = $stok_barang_lama + $qty_dtrbmasuk;
-                    
-                mysqli_query($GLOBALS["___mysqli_ston"], "UPDATE barang SET 
-                                                                stok_barang = '$stok_barang_baru',
-                                                                stok_retail = '$stok_retail_baru',
-                                                                hrgsat_barang = '$hargajadi',
-                                                                hrgjual_barang = '$hrgjual_dtrbmasuk',
-                                                                jenisobat = '$jns_obat'
-                                                                WHERE id_barang = '$id_barang'");
-                
-                // echo $stok_barang_baru;
-                $data = array(
-                        'stok_barang_baru'  => $stok_barang_baru,
-                        'stok_retail_baru'  => $stok_retail_baru
-                    );                                                
-                echo json_encode($data);
-                
-            } elseif($tipe == 2){
-                $stok_retail_lama = $stok_retail;
-                $stok_retail_baru = $stok_retail_lama + $qty_dtrbmasuk;
-                    
-                $stok_barang_lama = $stok_barang;
-                $w = intval($stok_retail_baru/$konversi);
-                    
-                mysqli_query($GLOBALS["___mysqli_ston"], "UPDATE barang SET 
-                                                                stok_barang = '$w',
-                                                                stok_retail = '$stok_retail_baru',
-                                                                hrgsat_retail = '$hargajadi',
-                                                                hrgjual_retail = '$hrgjual_dtrbmasuk',
-                                                                jenisobat = '$jns_obat'
-                                                                WHERE id_barang = '$id_barang'");
-            
-                // echo $w;
-                $data = array(
-                        'stok_barang_baru'  => $w,
-                        'stok_retail_baru'  => $stok_retail_baru
-                    );                                                
-                echo json_encode($data);
-                
-            }
-
+    mysqli_commit($conn);
+    echo json_encode($data);
+} catch (mysqli_sql_exception $e) {
+    mysqli_rollback($conn);
+    http_response_code(500);
+    echo json_encode(["error" => "Gagal menyimpan data, transaksi dibatalkan."]);
 }
-				  
-?>

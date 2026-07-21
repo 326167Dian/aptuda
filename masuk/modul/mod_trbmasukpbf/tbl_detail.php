@@ -57,6 +57,7 @@
 							   WHERE kd_trbmasuk='$kd_trbmasuk'
 							   ORDER BY id_dtrbmasuk ASC");
         $no=1;
+        $totalharga = array();
         while ($r=mysqli_fetch_array($noreq)){
 
             $hrgsat_dtrbmasuk = format_rupiah($r['hrgsat_dtrbmasuk']);
